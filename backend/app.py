@@ -16,10 +16,8 @@ app.config[
 
 mongo = PyMongo(app)
 
-record_requests_by_status = metrics.summary(
-    'requests_by_status', 'Request latencies by status',
-    labels={'status': lambda: request.status_code()}
-)
+record_requests_by_status = metrics.summary('requests_by_status', 'Request latencies by status',
+                 labels={'status': lambda r: r.status_code})
 
 common_counter = metrics.counter(
     'by_endpoint_counter', 'Request count by endpoints',
