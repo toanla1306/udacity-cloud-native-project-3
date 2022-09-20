@@ -3,6 +3,7 @@ from flask import Flask, render_template, request, jsonify
 import os
 import pymongo
 import logging
+import opentracing
 from flask_pymongo import PyMongo
 from flask_opentracing import FlaskTracing
 
@@ -40,8 +41,8 @@ FlaskInstrumentor().instrument_app(app)
 RequestsInstrumentor().instrument()
 
 #tracing initial
-jaeger_tracer  = init_tracer('backend')
-tracer = FlaskTracing(jaeger_tracer , True, app)
+jaeger_tracer = init_tracer('backend')
+flask_tracer = FlaskTracing(jaeger_tracer , True, app)
 
 # Metrics config
 metrics = PrometheusMetrics(app)
@@ -66,7 +67,8 @@ mongo = PyMongo(app)
 @record_requests_by_status
 @common_counter
 def homepage():
-    with tracer.start_active_span('home-page'):
+    parent_span = flask_tracer.get_span()
+    with opentracing.tracer.start_span('home-page', child_of=parent_span):
         return "Hello World"
 
 
@@ -75,7 +77,8 @@ def homepage():
 @common_counter
 @historgram_status_path
 def my_api():
-    with tracer.start_span('my-api'):
+    parent_span = flask_tracer.get_span()
+    with opentracing.tracer.start_span('my-api', child_of=parent_span):
         answer = "something"
         return jsonify(repsonse=answer)
 
@@ -85,7 +88,8 @@ def my_api():
 @common_counter
 @historgram_status_path
 def add_star():
-    with tracer.start_span('add star'):
+    parent_span = flask_tracer.get_span()
+    with opentracing.tracer.start_span('add star', child_of=parent_span):
         star = mongo.db.stars
         name = request.json["name"]
         distance = request.json["distance"]
