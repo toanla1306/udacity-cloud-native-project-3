@@ -19,7 +19,7 @@ metadata:
     name: frontend
     release: prometheus
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: frontend
@@ -31,7 +31,7 @@ spec:
       containers:
         - name: frontend
           image: toanla1306/project-3-frontend-monitoring:latest
-          imagePullPolicy: Never
+          imagePullPolicy: Always
           ports:
           - name: frontendport
             containerPort: 8080
