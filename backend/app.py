@@ -40,8 +40,8 @@ FlaskInstrumentor().instrument_app(app)
 RequestsInstrumentor().instrument()
 
 #tracing initial
-tracer = init_tracer('backend')
-flask_tracer = FlaskTracing(tracer, True, app)
+jaeger_tracer  = init_tracer('backend')
+tracer = FlaskTracing(jaeger_tracer , True, app)
 
 # Metrics config
 metrics = PrometheusMetrics(app)
