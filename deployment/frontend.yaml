@@ -9,16 +9,17 @@ type: kubernetes.io/dockerconfigjson
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: frontend
   annotations:
+    "sidecar.jaegertracing.io/inject": "true"
     prometheus.io/scrape: "true"
     prometheus.io/path: /metrics
     prometheus.io/port: frontendport
   labels:
     name: frontend
-    release: prometheus 
-  name: frontend-app
+    release: prometheus
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       app: frontend
@@ -28,13 +29,13 @@ spec:
         app: frontend
     spec:
       containers:
-      - name: frontend
-        image: toanla1306/project-3-frontend-monitoring:latest
-        imagePullPolicy: Always
-        ports:
-        - name: frontendport
-          containerPort: 8081
-          protocol: TCP
+        - name: frontend
+          image: toanla1306/project-3-frontend-monitoring:latest
+          imagePullPolicy: Never
+          ports:
+          - name: frontendport
+            containerPort: 8080
+            protocol: TCP
       restartPolicy: Always
       imagePullSecrets:
       - name: secret-frontend-api
@@ -42,32 +43,35 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: frontend-service
+  name: frontend
+  labels:
+    app: frontend
 spec:
   selector:
     app: frontend
   ports:
-    - port: 8081
-      targetPort: 8080
+    - name: frontend
+      protocol: TCP
+      port: 8083
+      targetPort: frontendport
   type: LoadBalancer
-
---- 
+---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: frontend-monitor
+  name: frontend
+  namespace: monitoring
   labels:
-    release: prometheus
     app: frontend
+    release: prometheus
 spec:
-  jobLabel: frontend
   selector:
     matchLabels:
       app: frontend
+  endpoints:
+  - port: frontend
+    path: /metrics
+    interval: 15s
   namespaceSelector:
     matchNames:
-      - default
-  endpoints:
-    - port: frontend
-      path: /metrics
-      interval: 30s
+    - default
