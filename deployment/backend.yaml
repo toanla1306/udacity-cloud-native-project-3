@@ -9,16 +9,17 @@ type: kubernetes.io/dockerconfigjson
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: backend
   annotations:
+    "sidecar.jaegertracing.io/inject": "true"
     prometheus.io/scrape: "true"
     prometheus.io/path: /metrics
     prometheus.io/port: backendport
   labels:
     name: backend
-    release: prometheus 
-  name: backend-app
+    release: prometheus
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: backend
@@ -28,13 +29,13 @@ spec:
         app: backend
     spec:
       containers:
-      - name: backend
-        image: toanla1306/project-3-backend-monitoring:latest
-        imagePullPolicy: Always
-        ports:
-        - name: backendport
-          containerPort: 8081
-          protocol: TCP
+        - name: backend
+          image: toanla1306/project-3-backend-monitoring:latest
+          imagePullPolicy: Always
+          ports:
+          - name: backendport
+            containerPort: 8080
+            protocol: TCP
       restartPolicy: Always
       imagePullSecrets:
       - name: secret-backend-api
@@ -42,32 +43,35 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-service
+  name: backend
+  labels:
+    app: backend
 spec:
   selector:
     app: backend
   ports:
-    - port: 8081
-      targetPort: 8080
+    - name: backend
+      protocol: TCP
+      port: 8081
+      targetPort: backendport
   type: LoadBalancer
-
---- 
+---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: backend-monitor
+  name: backend
+  namespace: monitoring
   labels:
-    release: prometheus
     app: backend
+    release: prometheus
 spec:
-  jobLabel: backend
   selector:
     matchLabels:
       app: backend
+  endpoints:
+  - port: backend
+    path: /metrics
+    interval: 15s
   namespaceSelector:
     matchNames:
-      - default
-  endpoints:
-    - port: backend
-      path: /metrics
-      interval: 30s
+    - default
