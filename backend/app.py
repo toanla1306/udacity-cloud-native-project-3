@@ -68,7 +68,7 @@ mongo = PyMongo(app)
 @common_counter
 def homepage():
     parent_span = flask_tracer.get_span()
-    with opentracing.tracer.start_span('home-page', child_of=parent_span):
+    with opentracing.tracer.start_span('home-page', child_of=parent_span) as span:
         return "Hello World"
 
 
@@ -78,8 +78,9 @@ def homepage():
 @historgram_status_path
 def my_api():
     parent_span = flask_tracer.get_span()
-    with opentracing.tracer.start_span('my-api', child_of=parent_span):
+    with opentracing.tracer.start_span('my-api', child_of=parent_span) as span:
         answer = "something"
+        span.set_tag("answer", answer)
         return jsonify(repsonse=answer)
 
 
@@ -89,14 +90,18 @@ def my_api():
 @historgram_status_path
 def add_star():
     parent_span = flask_tracer.get_span()
-    with opentracing.tracer.start_span('add star', child_of=parent_span):
-        star = mongo.db.stars
-        name = request.json["name"]
-        distance = request.json["distance"]
-        star_id = star.insert({"name": name, "distance": distance})
-        new_star = star.find_one({"_id": star_id})
-        output = {"name": new_star["name"], "distance": new_star["distance"]}
-        return jsonify({"result": output})
+    with opentracing.tracer.start_span('add star', child_of=parent_span) as span:
+        try:
+            star = mongo.db.stars
+            name = request.json["name"]
+            distance = request.json["distance"]
+            star_id = star.insert({"name": name, "distance": distance})
+            new_star = star.find_one({"_id": star_id})
+            output = {"name": new_star["name"], "distance": new_star["distance"]}
+            span.set_tag("output", output)
+            return jsonify({"result": output})
+        except:
+            span.set_tag("output", "issue with database connection on star endpoint")
 
 
 if __name__ == "__main__":
