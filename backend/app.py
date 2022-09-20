@@ -4,10 +4,12 @@ import os
 import pymongo
 import logging
 from flask_pymongo import PyMongo
+from flask_opentracing import FlaskTracing
 
 from prometheus_flask_exporter import PrometheusMetrics
 
 from jaeger_client import Config
+from jaeger_client.metrics.prometheus import PrometheusMetricsFactory
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
@@ -23,37 +25,42 @@ def init_tracer(service):
                 'param': 1,
             },
             'logging': True,
+            "reporter_batch_size": 1,
         },
         service_name=service,
-        validate=True
+        validate=True,
+        metrics_factory=PrometheusMetricsFactory(service_name_label=service),
     )
 
     # this call also sets opentracing.tracer
     return config.initialize_tracer()
 
 app = Flask(__name__)
-tracer = init_tracer('backend')
 FlaskInstrumentor().instrument_app(app)
+RequestsInstrumentor().instrument()
 
+#tracing initial
+tracer = init_tracer('backend')
+flask_tracer = FlaskTracing(tracer, True, app)
+
+# Metrics config
 metrics = PrometheusMetrics(app)
 metrics.info('backend', 'Backend Application info', version='1.0.3')
+record_requests_by_status = metrics.summary('requests_by_status', 'Request latencies by status',
+                 labels={'status': lambda r: r.status_code})
+common_counter = metrics.counter(
+    'by_endpoint_counter', 'Request count by endpoints',
+    labels={'endpoint': lambda: request.endpoint}
+)
+historgram_status_path = metrics.histogram('requests_by_status_and_path', 'Request latencies by status and path', labels={'status': lambda r: r.status_code, 'path': lambda: request.path})
 
+# DB config
 app.config["MONGO_DBNAME"] = "example-mongodb"
 app.config[
     "MONGO_URI"
 ] = "mongodb://example-mongodb-svc.default.svc.cluster.local:27017/example-mongodb"
 
 mongo = PyMongo(app)
-
-record_requests_by_status = metrics.summary('requests_by_status', 'Request latencies by status',
-                 labels={'status': lambda r: r.status_code})
-
-common_counter = metrics.counter(
-    'by_endpoint_counter', 'Request count by endpoints',
-    labels={'endpoint': lambda: request.endpoint}
-)
-
-historgram_status_path = metrics.histogram('requests_by_status_and_path', 'Request latencies by status and path', labels={'status': lambda r: r.status_code, 'path': lambda: request.path})
 
 @app.route("/")
 @record_requests_by_status
