@@ -19,4 +19,4 @@ RUN apt-get update && \
 # CMD ["gunicorn", "--access-logfile", "-", "--error-logfile", "-", "-w", "4", "-b", "0.0.0.0:8080", "app:app"]
 EXPOSE 8080
 
-ENTRYPOINT ["python", "app.py"]
+ENTRYPOINT ["python", "app-v2.py"]
